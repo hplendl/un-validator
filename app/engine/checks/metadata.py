@@ -106,8 +106,8 @@ def evaluate_document(doc: str | None) -> dict:
     return res
 
 
-def score_document(ev: dict) -> float:
-    w = config.METADATA_ELEMENTS
+def score_document(ev: dict, weights: dict | None = None) -> float:
+    w = weights or config.METADATA_ELEMENTS
     tot = sum(w.values())
     got = sum(w[k] * (1.0 if ev.get(k) == "present" else 0.5 if ev.get(k) == "auto" else 0.0) for k in w)
     return round(100.0 * got / tot, 1)
@@ -126,7 +126,7 @@ def item_metadata(ctx):
     rows = []
     for i, cd in enumerate(sorted(items, key=lambda c: (c.kind != "Feature Class", c.name.lower()))):
         ev = evaluate_document(cd.documentation)
-        sc = score_document(ev) if cd.documentation else 0.0
+        sc = score_document(ev, (ctx.rules.get("weights") or {}).get("metadata_elements")) if cd.documentation else 0.0
         rows.append(
             {
                 "item": cd.name,
@@ -213,7 +213,7 @@ def workspace_metadata(ctx):
         ctx.score(0, weight=1, label="Dataset-level metadata")
         return
     ev = evaluate_document(doc)
-    sc = score_document(ev)
+    sc = score_document(ev, (ctx.rules.get("weights") or {}).get("metadata_elements"))
     ctx.log(f"Dataset-level metadata ({ev.get('_standard')}) scores {sc:.0f}/100")
     missing = [LABELS[k] for k in PATHS if ev[k] != "present"]
     if missing:

@@ -1,0 +1,38 @@
+{
+  // Overlay merged onto the built-in defaults. Lists replace the default list.
+  // Objects merge: a stage weight you omit keeps its default.
+  // Copy this file, delete the comments you do not need, and pass it with
+  //   python run.py validate DATA.gdb --rules rules.json
+  // or set UNV_RULES, or type the path in the dashboard before Run.
+  "thresholds": {
+    "snap_tolerance_m": 0.001, // metres, used when a class has no XY tolerance
+    "near_miss_m": 0.5,
+    "max_sample_ids": 25 // record ids kept on each finding (the count is still the full number)
+  },
+  "required_fields": ["GLOBALID", "ASSETGROUP", "ASSETTYPE"],
+  "asset_id_fields": ["ASSETID", "FACILITYID"],
+  "weights": {
+    "stages": { "metadata": 20, "lineage": 15, "schema": 25, "quality": 40 },
+    "metadata_elements": {
+      "summary": 1.0,
+      "description": 1.5,
+      "tags": 1.0,
+      "credits": 0.75,
+      "use_limits": 1.0,
+      "contact": 1.0,
+      "extent": 0.75,
+      "lineage": 1.0
+    }
+  },
+  "severities": {
+    // null_required, null_optional, duplicate_globalid, duplicate_asset_id,
+    // coded_value, unmapped_asset_type, missing_asset_group, fuzzy_asset_type
+    "null_required": "error",
+    "unmapped_asset_type": "warning",
+    "missing_asset_group": "info"
+  },
+  "domains": {
+    // Extra codes treated as valid for that coded-value domain, on top of the geodatabase domain.
+    "Asset_Lifecycle_Status": ["Proposed"]
+  }
+}

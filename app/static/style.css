@@ -155,3 +155,8 @@ td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
 .mcell.auto{background:#fff1d6;color:#94600a} .mcell.placeholder{background:#fde8cc;color:#9a5a08}
 .footer{flex:none;background:#151c2b;color:#9aa6bc;font-size:11px;padding:7px 22px;line-height:1.5}
 .footer a{color:#b9cbea}
+
+.stack{display:flex;flex-direction:column;gap:3px;font-size:12px;margin:6px 0;color:#4a5670}
+.stack input{width:100%}
+.checkline{justify-content:flex-start;gap:8px}
+.sig{font-family:var(--mono);font-size:11px;word-break:break-all}

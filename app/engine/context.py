@@ -8,7 +8,15 @@ from typing import TYPE_CHECKING, Any
 
 from .. import config
 from ..log import get_logger
-from .models import SEVERITIES, STAGES, Finding
+from .models import (
+    SEVERITIES,
+    STAGES,
+    Finding,
+    action_for,
+    classification_for,
+    finding_id,
+    rule_from_message,
+)
 from .scoring import clamp, weighted_mean
 
 if TYPE_CHECKING:
@@ -44,6 +52,12 @@ class RunContext:
         self.tables: dict[str, Any] = {}  # extra result tables (metadata items, layer summary, ...)
         self.current_stage = "discover"
         self.current_check = ""
+        self.rules: dict = job.options.get("rules") or None  # filled below if missing
+        if not self.rules:
+            from .rules import builtin_rules
+
+            self.rules = builtin_rules()
+        self.dispositions: dict = job.options.get("dispositions") or {}
         pace_ms = int(job.options.get("pace_ms", config.DEMO_PACE_MS) or 0)
         self.pace_s = max(0, min(config.MAX_PACE_MS, pace_ms)) / 1000.0
 
@@ -78,6 +92,11 @@ class RunContext:
             label=str(label),
         )
 
+    def sev(self, key: str, default: str) -> str:
+        """Severity from the rules file, or *default* when the key is unset or invalid."""
+        value = (self.rules.get("severities") or {}).get(key, default)
+        return value if value in SEVERITIES else default
+
     def finding(
         self,
         severity: str,
@@ -87,20 +106,57 @@ class RunContext:
         sample_ids=None,
         detail: str = "",
         check: str | None = None,
+        rule: str | None = None,
+        classification: str | None = None,
+        confidence: float | None = None,
+        evidence: str = "",
+        method: str = "",
+        threshold: str = "",
+        record_keys=None,
+        recommended_action: str = "",
+        affected_count: int | None = None,
     ) -> Finding:
         if severity not in SEVERITIES:
             raise ValueError(f"severity must be one of {SEVERITIES}, not {severity!r}")
-        ids = [_as_id(i) for i in list(sample_ids if sample_ids is not None else [])[: config.MAX_SAMPLE_IDS]]
+        cap = int((self.rules.get("thresholds") or {}).get("max_sample_ids") or config.MAX_SAMPLE_IDS)
+        raw_ids = list(sample_ids if sample_ids is not None else [])
+        ids = [_as_id(i) for i in raw_ids[:cap]]
+        keys_src = list(record_keys) if record_keys is not None else list(raw_ids)
+        keys = [_as_id(i) for i in keys_src]
+        rule_key = (rule or "").strip() or rule_from_message(message)
+        check_name = check or self.current_check
+        cls = classification or classification_for(self.current_stage, severity)
+        conf = 1.0 if confidence is None else max(0.0, min(1.0, float(confidence)))
+        n_affected = (
+            int(affected_count) if affected_count is not None else (int(count) if count is not None else len(keys))
+        )
+        fid = finding_id(check_name, str(layer or ""), rule_key, keys)
+        disp = self.dispositions.get(fid) or self.dispositions.get(fid.lower()) or {}
+        status = str(disp.get("disposition", "OPEN")).upper()
+        if status not in ("OPEN", "CLOSED", "ACCEPTED"):
+            status = "OPEN"
         f = Finding(
             severity,
             self.current_stage,
-            check or self.current_check,
+            check_name,
             str(message),
             str(layer or ""),
             None if count is None else int(count),
             ids,
             str(detail or ""),
             self.dataset.name,
+            finding_id=fid,
+            rule=rule_key,
+            classification=cls,
+            confidence=round(conf, 4),
+            evidence=str(evidence or detail or message),
+            method=str(method or check_name),
+            threshold=str(threshold or ""),
+            affected_ids=ids,
+            affected_count=n_affected,
+            recommended_action=str(recommended_action or action_for(cls)),
+            disposition=status,
+            disposition_note=str(disp.get("note") or ""),
         )
         self.findings.append(f)
         self.job.emit("finding", **asdict(f))

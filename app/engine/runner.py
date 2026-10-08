@@ -7,6 +7,8 @@ after the current step and still produces a (partial) result.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import time
 import traceback
 from pathlib import Path
@@ -89,9 +91,16 @@ def run_dataset(job: Job, target: str, index: int) -> dict:
 
     ctx = RunContext(job, ds, index, len(job.targets))
     status = "done"
+    profile_only = bool(job.options.get("profile_only"))
+    stages = [s for s in STAGES if s[0] == "discover"] if profile_only else list(STAGES)
     try:
-        for stage, stage_name in STAGES:
+        for stage, stage_name in stages:
             _run_stage(ctx, stage, stage_name)
+        if profile_only:
+            from .profile import profile_dataset
+
+            ctx.check_cancel()
+            profile_dataset(ctx)
     except JobCancelled:
         status = "cancelled"
         ctx.log("Run stopped by user; the result below is partial", "warn")
@@ -119,8 +128,12 @@ def run_job(job: Job) -> None:
     load_checks()
     job.status = "running"
     job.started = time.time()
+    shown = [s for s in STAGES if s[0] == "discover"] if job.options.get("profile_only") else list(STAGES)
     job.emit(
-        "job_start", targets=[display_path(t) for t in job.targets], stages=[{"id": s, "name": n} for s, n in STAGES]
+        "job_start",
+        targets=[display_path(t) for t in job.targets],
+        stages=[{"id": s, "name": n} for s, n in shown],
+        profile_only=bool(job.options.get("profile_only")),
     )
     results: list[dict] = []
     try:
@@ -130,6 +143,19 @@ def run_job(job: Job) -> None:
             results.append(run_dataset(job, target, i))
         status = "cancelled" if job.cancelled else "done"
         combined = combine(job.id, results, status)
+        from .manifest import result_signature
+        from .questions import build_questions
+        from .rules import builtin_rules, rules_sha256
+
+        rules = job.options.get("rules") or builtin_rules()
+        combined["rules"] = rules
+        combined["rules_sha256"] = rules_sha256(rules)
+        combined["profile_only"] = bool(job.options.get("profile_only"))
+        disp = job.options.get("dispositions") or {}
+        disp_blob = json.dumps(disp, sort_keys=True, separators=(",", ":"), default=str)
+        combined["dispositions_sha256"] = hashlib.sha256(disp_blob.encode("utf-8")).hexdigest() if disp else ""
+        combined["questions"] = build_questions(combined)
+        combined["signature"] = result_signature(combined)
         try:
             combined["files"] = write_reports(combined)
         except Exception as e:

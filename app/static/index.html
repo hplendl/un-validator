@@ -45,6 +45,9 @@
           <option value="350">Slow (350 ms/step)</option>
         </select>
       </label>
+      <label class="row checkline"><input type="checkbox" id="profileOnly"> Profile only (no score)</label>
+      <label class="stack">Rules file <input id="rulesPath" type="text" placeholder="optional JSON overlay"></label>
+      <label class="stack">Dispositions <input id="dispPath" type="text" placeholder="optional JSON, match by finding id"></label>
       <div class="btnrow">
         <button id="runBtn" class="primary">&#9654; Run validation</button>
         <button id="cancelBtn" class="ghost" disabled>Stop</button>
@@ -52,6 +55,8 @@
       <div class="btnrow exports">
         <a id="exportHtml" class="btn disabled" target="_blank">Export HTML</a>
         <a id="exportCsv" class="btn disabled">Export CSV</a>
+        <a id="exportQuestions" class="btn disabled">Questions</a>
+        <a id="exportManifest" class="btn disabled">Manifest</a>
       </div>
     </section>
     <section class="panel">

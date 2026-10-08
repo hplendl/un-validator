@@ -3,7 +3,9 @@
 
     python run.py                                  # start the web UI (http://127.0.0.1:8765)
     python run.py --data-root D:/gis serve --port 9000
-    python run.py validate PATH [PATH ...]         # headless run: prints scores, writes HTML/CSV/JSON reports
+    python run.py validate PATH [PATH ...]         # headless run: prints scores, writes reports
+    python run.py profile PATH [PATH ...]          # discovery only: no score
+    python run.py verify MANIFEST                  # replay a run and compare its signature
     python run.py clear-cache                      # delete cached GDAL-compatible copies and parsed models
 
 Global options (before the command) override the UNV_* environment variables; see README.
@@ -12,6 +14,7 @@ Global options (before the command) override the UNV_* environment variables; se
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
@@ -24,7 +27,25 @@ from app.log import setup_logging
 LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 
 
-def cmd_validate(paths: list[str], pace_ms: int = 0) -> int:
+def _job_options(pace_ms: int, rules_path: str | None, dispositions_path: str | None, profile_only: bool) -> dict:
+    from app.engine.rules import RulesError, load_dispositions, load_rules_file
+
+    options: dict = {"pace_ms": pace_ms, "profile_only": profile_only}
+    try:
+        path = rules_path or os.environ.get("UNV_RULES", "")
+        if path:
+            options["rules"] = load_rules_file(path)
+        path = dispositions_path or os.environ.get("UNV_DISPOSITIONS", "")
+        if path:
+            options["dispositions"] = load_dispositions(path)
+    except RulesError as e:
+        for line in e.errors:
+            print(line)
+        raise SystemExit(2) from None
+    return options
+
+
+def cmd_validate(paths: list[str], pace_ms: int = 0, options: dict | None = None) -> int:
     """Validate datasets from the command line (paths given here are trusted, so not restricted)."""
     from app.engine.dataset import discover_datasets
     from app.engine.jobs import Job
@@ -36,7 +57,9 @@ def cmd_validate(paths: list[str], pace_ms: int = 0) -> int:
     if not targets:
         print("No .gdb / .gpkg datasets found")
         return 1
-    job = Job(f"cli{int(time.time())}", targets, {"pace_ms": pace_ms})
+    opts = {"pace_ms": pace_ms}
+    opts.update(options or {})
+    job = Job(f"cli{int(time.time())}", targets, opts)
     last = 0
 
     def printer() -> None:
@@ -69,7 +92,61 @@ def cmd_validate(paths: list[str], pace_ms: int = 0) -> int:
                 f"stages={ds['stages']} counts={ds['counts']}"
             )
         print("Reports:", job.result.get("files"))
+        if job.result.get("signature"):
+            print("Signature:", job.result["signature"])
     return 0 if job.status == "done" else 2
+
+
+def cmd_verify(manifest: str) -> int:
+    """Re-run the inputs recorded in a manifest and compare the result signature."""
+    import json
+    from pathlib import Path
+
+    from app.engine.jobs import Job
+    from app.engine.manifest import compare_signatures
+    from app.engine.runner import run_job
+
+    path = Path(manifest)
+    if not path.is_file():
+        print(f"Manifest not found: {path.name}")
+        return 2
+    doc = json.loads(path.read_text(encoding="utf-8"))
+    inputs = [p for p in doc.get("input_paths") or [] if p]
+    missing = [p for p in inputs if not Path(p).exists()]
+    if not inputs or missing:
+        print("Cannot replay this run; a recorded input is missing.")
+        for p in missing:
+            print(" -", Path(p).name)
+        return 2
+    opts = {"pace_ms": 0, "profile_only": bool(doc.get("profile_only"))}
+    if doc.get("rules"):
+        opts["rules"] = doc["rules"]
+    job = Job(f"verify{int(time.time())}", inputs, opts)
+    run_job(job)
+    if not job.result:
+        print("Replay failed.")
+        return 2
+    # The saved manifest has no full finding list; compare against a fresh signature.
+    previous = {
+        "datasets": [
+            {
+                "dataset": d.get("name"),
+                "overall": d.get("overall"),
+                "grade": d.get("grade"),
+                "findings": [None] * int(d.get("findings") or 0),
+            }
+            for d in doc.get("datasets") or []
+        ]
+    }
+    diff = compare_signatures(doc.get("signature") or "", job.result.get("signature") or "", previous, job.result)
+    if diff["match"]:
+        print(f"MATCH {diff['actual']}")
+        return 0
+    print(f"MISMATCH expected {diff['expected']}")
+    print(f"         actual   {diff['actual']}")
+    for line in diff["differences"]:
+        print(" -", line)
+    return 1
 
 
 def cmd_clear_cache() -> int:
@@ -112,6 +189,15 @@ def build_parser() -> argparse.ArgumentParser:
     v = sub.add_parser("validate", help="validate datasets without the UI")
     v.add_argument("paths", nargs="+")
     v.add_argument("--pace-ms", type=int, default=0)
+    v.add_argument("--rules", metavar="FILE", help="JSON rules overlay (or set UNV_RULES)")
+    v.add_argument(
+        "--dispositions", metavar="FILE", help="JSON dispositions keyed by finding id (or set UNV_DISPOSITIONS)"
+    )
+    pr = sub.add_parser("profile", help="profile fields and null rates without scoring")
+    pr.add_argument("paths", nargs="+")
+    pr.add_argument("--rules", metavar="FILE")
+    vf = sub.add_parser("verify", help="replay a manifest and report whether the signature matches")
+    vf.add_argument("manifest")
     sub.add_parser("clear-cache", help="delete cached GDAL-compatible copies and parsed reference models")
     return ap
 
@@ -129,7 +215,11 @@ def main(argv: list[str] | None = None) -> int:
         port=getattr(a, "port", None),
     )
     if a.cmd == "validate":
-        return cmd_validate(a.paths, a.pace_ms)
+        return cmd_validate(a.paths, a.pace_ms, _job_options(a.pace_ms, a.rules, a.dispositions, False))
+    if a.cmd == "profile":
+        return cmd_validate(a.paths, 0, _job_options(0, a.rules, None, True))
+    if a.cmd == "verify":
+        return cmd_verify(a.manifest)
     if a.cmd == "clear-cache":
         return cmd_clear_cache()
     import uvicorn

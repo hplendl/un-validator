@@ -71,8 +71,10 @@ def dangles(ctx) -> None:
         cd = ctx.dataset.class_def(lyr.name)
         if cd and cd.xy_tolerance:
             tols.append(cd.xy_tolerance)
-    snap = max(tols) if tols else config.SNAP_TOLERANCE_M / unit_m
-    near = config.NEAR_MISS_M / unit_m
+    snap_m = float((ctx.rules.get("thresholds") or {}).get("snap_tolerance_m", config.SNAP_TOLERANCE_M))
+    near_m = float((ctx.rules.get("thresholds") or {}).get("near_miss_m", config.NEAR_MISS_M))
+    snap = max(tols) if tols else snap_m / unit_m
+    near = near_m / unit_m
     ctx.log(f"Snap tolerance {snap:.4g} {units}; near-miss threshold {near:.3g} {units}")
     geoms, owner_layer, owner_oid = [], [], []
     used_lines = []

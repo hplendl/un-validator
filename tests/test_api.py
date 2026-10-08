@@ -140,3 +140,10 @@ def test_allow_any_path_flag(client, monkeypatch, gpkg_path, tmp_path):
     r = client.post("/api/run", json={"path": str(outside)})
     assert r.status_code == 200
     _wait(client, r.json()["job_id"])
+
+
+def test_run_rejects_unknown_rules_keys(client, data_root):
+    bad = data_root / "rules-bad.json"
+    bad.write_text('{"thresholds": {"nope": 1}}', encoding="utf-8")
+    r = client.post("/api/run", json={"path": "data/network/net.gpkg", "rules_path": "data/rules-bad.json"})
+    assert r.status_code == 400 and "nope" in r.text

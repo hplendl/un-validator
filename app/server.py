@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -178,6 +179,9 @@ def api_datasets(refresh: bool = False):
 class RunRequest(BaseModel):
     path: str = Field(..., min_length=1, max_length=4096)
     pace_ms: int = 0
+    rules_path: str = Field("", max_length=4096)
+    dispositions_path: str = Field("", max_length=4096)
+    profile_only: bool = False
 
 
 @app.post("/api/run")
@@ -195,8 +199,38 @@ def api_run(req: RunRequest):
     if not targets:
         raise HTTPException(400, "No file geodatabase (.gdb) or GeoPackage (.gpkg) found at that path")
     pace = max(0, min(config.MAX_PACE_MS, int(req.pace_ms or 0)))
-    job = JOBS.submit(targets, {"pace_ms": pace})
+    options: dict = {"pace_ms": pace, "profile_only": bool(req.profile_only)}
+    from .engine.rules import RulesError
+
+    try:
+        rules = _load_optional(req.rules_path, "UNV_RULES", "rules")
+        disp = _load_optional(req.dispositions_path, "UNV_DISPOSITIONS", "dispositions")
+    except PathNotAllowed as e:
+        raise HTTPException(403, str(e)) from None
+    except RulesError as e:
+        raise HTTPException(400, " ".join(e.errors)) from None
+    if rules is not None:
+        options["rules"] = rules
+    if disp is not None:
+        options["dispositions"] = disp
+    job = JOBS.submit(targets, options)
     return {"job_id": job.id, "targets": [display_path(t) for t in targets], "status": job.status}
+
+
+def _load_optional(raw: str, env_name: str, kind: str):
+    """Load a rules or dispositions file. A browser path must sit inside the data roots.
+    The environment variable is read on the server and is not a browser-supplied path."""
+    from .engine.rules import load_dispositions, load_rules_file
+
+    text = (raw or "").strip()
+    if text:
+        path = resolve_user_path(text)
+        return load_rules_file(path) if kind == "rules" else load_dispositions(path)
+    env = os.environ.get(env_name, "").strip()
+    if not env:
+        return None
+    path = Path(env).expanduser()
+    return load_rules_file(path) if kind == "rules" else load_dispositions(path)
 
 
 def _job(job_id: str) -> Job:
@@ -291,6 +325,38 @@ def api_report_html(job_id: str, download: bool = False):
 def api_report_csv(job_id: str):
     return FileResponse(
         _report_file(job_id, "csv"), media_type="text/csv", filename=f"un_validator_{job_id}_findings.csv"
+    )
+
+
+@app.get("/api/jobs/{job_id}/questions.csv")
+def api_questions_csv(job_id: str):
+    return FileResponse(
+        _report_file(job_id, "questions_csv"), media_type="text/csv", filename=f"un_validator_{job_id}_questions.csv"
+    )
+
+
+@app.get("/api/jobs/{job_id}/questions.xlsx")
+def api_questions_xlsx(job_id: str):
+    return FileResponse(
+        _report_file(job_id, "questions_xlsx"),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=f"un_validator_{job_id}_questions.xlsx",
+    )
+
+
+@app.get("/api/jobs/{job_id}/manifest.json")
+def api_manifest(job_id: str):
+    return FileResponse(
+        _report_file(job_id, "manifest"), media_type="application/json", filename=f"un_validator_{job_id}_manifest.json"
+    )
+
+
+@app.get("/api/jobs/{job_id}/asset_mapping.csv")
+def api_asset_mapping(job_id: str):
+    return FileResponse(
+        _report_file(job_id, "asset_mapping"),
+        media_type="text/csv",
+        filename=f"un_validator_{job_id}_asset_mapping.csv",
     )
 
 

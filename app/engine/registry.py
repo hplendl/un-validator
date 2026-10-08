@@ -118,7 +118,7 @@ def load_checks(plugin_dir: str | Path | None = None, force: bool = False) -> Pl
     global _loaded, last_plugin_report
     if _loaded and not force:
         return last_plugin_report
-    from .checks import discover, finalize, lineage, metadata, network, quality, schema  # noqa: F401
+    from .checks import assets, discover, finalize, lineage, metadata, network, quality, schema  # noqa: F401
 
     last_plugin_report = load_plugins(plugin_dir if plugin_dir is not None else config.PLUGIN_DIR)
     _loaded = True

@@ -152,13 +152,20 @@ def coded_values(ctx):
                 vals = series[sel & series.notna()]
                 if vals.empty:
                     continue
+                extra = (ctx.rules.get("domains") or {}).get(dn, [])
                 if dom.kind == "coded":
-                    if any(isinstance(k, (int, float)) for k in dom.codes):
-                        valid = {float(k) for k in dom.codes if isinstance(k, (int, float))}
+                    if any(isinstance(k, (int, float)) and not isinstance(k, bool) for k in dom.codes):
+                        valid = {float(k) for k in dom.codes if isinstance(k, (int, float)) and not isinstance(k, bool)}
+                        for ex in extra:
+                            try:
+                                valid.add(float(ex))
+                            except (TypeError, ValueError):
+                                pass
                         num = pd.to_numeric(vals, errors="coerce")
                         badm = ~num.isin(valid)
                     else:
                         valid = {str(k).strip() for k in dom.codes}
+                        valid |= {str(ex).strip() for ex in extra}
                         sv = (
                             vals.map(lambda v: v.decode("utf-8", "replace") if isinstance(v, (bytes, bytearray)) else v)
                             .astype(str)
@@ -179,7 +186,7 @@ def coded_values(ctx):
                     sample_vals = ", ".join(str(v) for v in pd.Series(vals[badm]).value_counts().head(6).index)
                     stname = cd.subtypes.get(code, {}).get("name") if code is not None else None
                     ctx.finding(
-                        "error",
+                        ctx.sev("coded_value", "error"),
                         f"{nbad:,} values in {col} not in domain {dn}" + (f" (subtype {stname})" if stname else ""),
                         layer=lyr.name,
                         count=nbad,

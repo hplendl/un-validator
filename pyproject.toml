@@ -1,6 +1,6 @@
 [project]
 name = "un-validator"
-version = "0.2.0"
+version = "0.3.0"
 description = "Open-source validation of ArcGIS Utility Network geodatabases: metadata, lineage, schema and data quality"
 readme = "README.md"
 license = { file = "LICENSE" }

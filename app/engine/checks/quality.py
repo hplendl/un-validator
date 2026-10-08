@@ -47,7 +47,7 @@ def _blank(s: pd.Series) -> pd.Series:
 @check("quality", "Required fields populated", order=10)
 def required_nulls(ctx) -> None:
     """Nulls/blanks in required fields (non-nullable in the schema, plus configured UN keys)."""
-    req_cfg = {f.lower() for f in config.REQUIRED_FIELDS}
+    req_cfg = {f.lower() for f in (ctx.rules.get("required_fields") or config.REQUIRED_FIELDS)}
     total = bad = 0
     layers = data_layers(ctx)
     for i, lyr in enumerate(layers):
@@ -94,7 +94,10 @@ def required_nulls(ctx) -> None:
             n = empty_n[c]
             if n:
                 bad += n
-                sev = "error" if c.lower() in req_cfg or c.lower() in non_nullable else "warning"
+                if c.lower() in req_cfg or c.lower() in non_nullable:
+                    sev = ctx.sev("null_required", "error")
+                else:
+                    sev = ctx.sev("null_optional", "warning")
                 ctx.finding(
                     sev,
                     f"{n:,} of {rows_n[c]:,} rows have no value in required field {c}",
@@ -132,7 +135,7 @@ def duplicates(ctx) -> None:
                 n = int(d.sum())
                 bad += n
                 ctx.finding(
-                    "error",
+                    ctx.sev("duplicate_globalid", "error"),
                     f"{n:,} rows share a GlobalID with another row in {lyr.name}",
                     layer=lyr.name,
                     count=n,
@@ -140,7 +143,7 @@ def duplicates(ctx) -> None:
                 )
                 if lyr.spatial:
                     ctx.flag_fids(lyr.name, raw.index[d.values], "error", "Duplicate GlobalID", max_n=100)
-        for af in config.ASSET_ID_FIELDS:
+        for af in ctx.rules.get("asset_id_fields") or config.ASSET_ID_FIELDS:
             col = present.get(af.lower())
             if not col:
                 continue
@@ -154,7 +157,7 @@ def duplicates(ctx) -> None:
                 bad += n * 0.25
                 top = as_text(s[d]).value_counts().head(5)
                 ctx.finding(
-                    "warning",
+                    ctx.sev("duplicate_asset_id", "warning"),
                     f"{n:,} {lyr.name} rows share a {col} value ({s[d].nunique():,} distinct values duplicated)",
                     layer=lyr.name,
                     count=n,

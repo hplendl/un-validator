@@ -56,7 +56,29 @@ def write_csv(result: dict, path: Path) -> None:
     with open(path, "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(
-            ["dataset", "severity", "stage", "check", "layer", "count", "message", "detail", "sample_object_ids"]
+            [
+                "dataset",
+                "severity",
+                "stage",
+                "check",
+                "layer",
+                "count",
+                "message",
+                "detail",
+                "sample_object_ids",
+                "finding_id",
+                "rule",
+                "classification",
+                "confidence",
+                "evidence",
+                "method",
+                "threshold",
+                "affected_count",
+                "affected_record_ids",
+                "recommended_action",
+                "disposition",
+                "disposition_note",
+            ]
         )
         for ds in result["datasets"]:
             for fd in ds.get("findings", []):
@@ -71,6 +93,18 @@ def write_csv(result: dict, path: Path) -> None:
                         csv_safe(fd["message"]),
                         csv_safe(fd.get("detail", "")),
                         " ".join(str(i) for i in fd.get("sample_ids", [])),
+                        csv_safe(fd.get("finding_id", "")),
+                        csv_safe(fd.get("rule", "")),
+                        csv_safe(fd.get("classification", "")),
+                        "" if fd.get("confidence") is None else fd.get("confidence"),
+                        csv_safe(fd.get("evidence", "")),
+                        csv_safe(fd.get("method", "")),
+                        csv_safe(fd.get("threshold", "")),
+                        "" if fd.get("affected_count") is None else fd.get("affected_count"),
+                        " ".join(str(i) for i in fd.get("affected_ids") or []),
+                        csv_safe(fd.get("recommended_action", "")),
+                        csv_safe(fd.get("disposition", "")),
+                        csv_safe(fd.get("disposition_note", "")),
                     ]
                 )
 
@@ -167,14 +201,75 @@ overall score {ovr} ({E(str(result.get("grade")))}) &middot; {len(result["datase
     path.write_text(doc, encoding="utf-8")
 
 
+def _write_asset_mapping(result: dict, path: Path) -> bool:
+    rows = []
+    for ds in result["datasets"]:
+        for rec in (ds.get("tables") or {}).get("asset_mapping") or []:
+            rows.append((ds.get("dataset"), rec))
+    if not rows:
+        return False
+    cols = [
+        "dataset",
+        "class_name",
+        "asset_group",
+        "asset_type",
+        "features",
+        "match",
+        "confidence",
+        "baseline_class",
+        "baseline_group",
+        "baseline_type",
+    ]
+    with path.open("w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(cols)
+        for dataset, rec in rows:
+            w.writerow(
+                [
+                    csv_safe(dataset),
+                    csv_safe(rec.get("class_name")),
+                    csv_safe(rec.get("asset_group")),
+                    csv_safe(rec.get("asset_type")),
+                    rec.get("features", ""),
+                    rec.get("match", ""),
+                    rec.get("confidence", ""),
+                    csv_safe(rec.get("baseline_class")),
+                    csv_safe(rec.get("baseline_group")),
+                    csv_safe(rec.get("baseline_type")),
+                ]
+            )
+    return True
+
+
 def write_reports(result: dict) -> dict:
-    """Write report.html, findings.csv and result.json to REPORT_DIR/<job_id>/; returns their paths."""
+    """Write the report files for a run. Returns their paths."""
     if not str(result.get("job_id", "")).isalnum():
         raise ValueError("invalid job id")
+    from .manifest import write_manifest
+    from .questions import write_questions_csv, write_questions_xlsx
+
     out = Path(config.REPORT_DIR) / result["job_id"]
     out.mkdir(parents=True, exist_ok=True)
     write_csv(result, out / "findings.csv")
+    findings = [f for ds in result["datasets"] for f in ds.get("findings", [])]
+    (out / "findings.json").write_text(json.dumps(findings, indent=1, default=str), encoding="utf-8")
     write_html(result, out / "report.html")
+    # The on-disk JSON keeps paths so a replay can find the inputs. It is not committed.
     slim = {**result, "datasets": [{k: v for k, v in d.items() if k != "map"} for d in result["datasets"]]}
     (out / "result.json").write_text(json.dumps(slim, indent=1, default=str), encoding="utf-8")
-    return {"html": str(out / "report.html"), "csv": str(out / "findings.csv"), "json": str(out / "result.json")}
+    questions = result.get("questions") or []
+    write_questions_csv(questions, out / "questions.csv")
+    write_questions_xlsx(questions, out / "questions.xlsx")
+    write_manifest(result, out / "manifest.json")
+    files = {
+        "html": str(out / "report.html"),
+        "csv": str(out / "findings.csv"),
+        "json": str(out / "result.json"),
+        "findings_json": str(out / "findings.json"),
+        "questions_csv": str(out / "questions.csv"),
+        "questions_xlsx": str(out / "questions.xlsx"),
+        "manifest": str(out / "manifest.json"),
+    }
+    if _write_asset_mapping(result, out / "asset_mapping.csv"):
+        files["asset_mapping"] = str(out / "asset_mapping.csv")
+    return files

@@ -127,7 +127,8 @@ async function run() {
   else if (S.mode === "folder") path = $("#folderSelect").value;
   else path = $("#pathInput").value.trim();
   if (!path) { alert("Choose a dataset, folder or path first"); return; }
-  const r = await fetch("/api/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ path, pace_ms: +$("#paceSelect").value }) });
+  const body = { path, pace_ms: +$("#paceSelect").value, profile_only: $("#profileOnly").checked, rules_path: $("#rulesPath").value.trim(), dispositions_path: $("#dispPath").value.trim() };
+  const r = await fetch("/api/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json();
   if (!r.ok) { alert(typeof j.detail === "string" ? j.detail : "Could not start"); return; }
   history.replaceState(null, "", "?job=" + j.job_id);
@@ -140,7 +141,7 @@ function resetRun() {
   S.counts = { error: 0, warning: 0, info: 0 }; S.checksRun = 0; S.stagesDone = 0; S.curFrac = 0; S.dsIndex = 0; S.dsTotal = 1;
   S.result = null; S.dsIdx = 0;
   updateCounts(); updateOverall();
-  ["exportHtml", "exportCsv"].forEach((id) => $("#" + id).classList.add("disabled"));
+  ["exportHtml", "exportCsv", "exportQuestions", "exportManifest"].forEach((id) => $("#" + id).classList.add("disabled"));
   $("#dash").className = "empty"; $("#dash").textContent = "Validation running...";
   $("#details").className = "empty"; $("#details").textContent = "Validation running...";
   $("#findTable tbody").innerHTML = ""; $("#tabFindCount").textContent = "";
@@ -185,7 +186,8 @@ function handle(kind, ev) {
     case "job_start":
       setStatus("running", "Running");
       S.dsTotal = ev.targets.length;
-      logLine(`${ts(ev.t)}Validation started: ${esc(ev.targets.length)} dataset(s)`, "hd");
+      if (ev.profile_only && ev.stages && ev.stages.length) { S.stages = ev.stages; buildPipeline(); }
+      logLine(`${ts(ev.t)}${ev.profile_only ? "Profile" : "Validation"} started: ${esc(ev.targets.length)} dataset(s)`, "hd");
       break;
     case "dataset_start":
       S.dsIndex = ev.index; S.stagesDone = 0; S.curFrac = 0;
@@ -282,7 +284,8 @@ async function finish(ok, status = "done") {
     : S.result.datasets.length ? `${S.result.datasets[0].dataset} · score ${S.result.overall ?? "n/a"} (${S.result.grade})` : "Stopped before the first dataset";
   if (!S.result.datasets.length) return;
   $("#exportHtml").href = `/api/jobs/${S.job}/report.html`; $("#exportCsv").href = `/api/jobs/${S.job}/findings.csv`;
-  ["exportHtml", "exportCsv"].forEach((id) => $("#" + id).classList.remove("disabled"));
+  $("#exportQuestions").href = `/api/jobs/${S.job}/questions.csv`; $("#exportManifest").href = `/api/jobs/${S.job}/manifest.json`;
+  ["exportHtml", "exportCsv", "exportQuestions", "exportManifest"].forEach((id) => $("#" + id).classList.remove("disabled"));
   const sel = $("#resultDs");
   sel.innerHTML = S.result.datasets.map((d, i) => `<option value="${i}">${esc(d.dataset)}</option>`).join("");
   $("#resultDsWrap").classList.toggle("hidden", S.result.datasets.length < 2);
@@ -340,6 +343,8 @@ function renderDashboard() {
         <b>${esc(fmt(s.feature_classes))}</b> feature classes · <b>${esc(fmt(s.tables))}</b> tables · <b>${esc(fmt(s.features))}</b> features<br>
         <b>${esc(fmt(s.domains))}</b> domains · ${s.utility_networks && s.utility_networks.length ? "utility network <b>" + esc(s.utility_networks.join(", ")) + "</b>" : "no utility network controller"}<br>
         Reference model: <b>${esc(String(s.reference_model || "none").replace("_AssetPackage", ""))}</b><br>
+        ${S.result.signature ? `Signature <span class="sig">${esc(S.result.signature.slice(0, 16))}</span><br>` : ""}
+        ${(S.result.questions || []).length ? `<b>${esc((S.result.questions || []).length)}</b> open questions<br>` : ""}
         ${d.status === "cancelled" ? '<b style="color:#b0700c">Stopped early: partial result</b><br>' : ""}Validated in <b>${esc(d.seconds)}</b> s<br><span style="font-size:11px">${esc(d.display_path || d.path)}</span></div>
       ${rank ? `<h4 style="margin-top:12px">Closest UN Foundation models</h4>${rank}` : ""}
     </div>
@@ -462,6 +467,11 @@ function renderDetails() {
   if (t.domain_violations && t.domain_violations.length) parts.push(`<h4>Coded-value violations</h4>` + tableHtml(t.domain_violations));
   if (t.connectivity) parts.push(`<h4>Line endpoint connectivity</h4>` + tableHtml(t.connectivity));
   if (t.un_tables) parts.push(`<h4>Utility network system tables</h4>` + tableHtml(t.un_tables));
+  if (t.profile) {
+    const flat = t.profile.map((r) => ({ layer: r.layer, geometry: r.geometry, rows: r.rows, fields: r.fields, key_candidates: r.key_candidates }));
+    parts.push(`<h4>Profile</h4>` + tableHtml(flat, ["layer", "geometry", "rows", "fields", "key_candidates"]));
+  }
+  if (t.asset_mapping && t.asset_mapping.length) parts.push(`<h4>Asset type mapping</h4>` + tableHtml(t.asset_mapping, ["class_name", "asset_group", "asset_type", "features", "match", "confidence", "baseline_group", "baseline_type"]));
   $("#details").className = "details";
   $("#details").innerHTML = parts.join("");
 }

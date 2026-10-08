@@ -1,0 +1,12 @@
+{
+  // Keys are the stable finding ids from findings.csv / findings.json.
+  // CLOSED and ACCEPTED drop the finding from the open-questions export.
+  // The result signature ignores disposition, so accepting a finding does not
+  // look like the data changed.
+  "findings": {
+    "0123456789abcdef0123": {
+      "disposition": "ACCEPTED",
+      "note": "Reviewed with the data editor; local type kept on purpose."
+    }
+  }
+}

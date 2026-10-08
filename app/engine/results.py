@@ -19,7 +19,8 @@ if TYPE_CHECKING:
 def compute_scores(ctx: RunContext) -> dict:
     """Combine check scores into stage scores and an overall weighted score (stored in ctx.state)."""
     stages = {st: ctx.stage_score(st) for st in SCORED_STAGES}
-    overall = overall_score(stages, config.STAGE_WEIGHTS)
+    weights = ((getattr(ctx, "rules", None) or {}).get("weights") or {}).get("stages") or config.STAGE_WEIGHTS
+    overall = overall_score(stages, weights)
     if not ctx.state.get("summary", {}).get("layers"):
         overall = None  # empty geodatabase: a score would be meaningless
     counts = {s: sum(1 for f in ctx.findings if f.severity == s) for s in SEVERITIES}
@@ -67,6 +68,10 @@ def failed_result(path: str | Path, error: BaseException, seconds: float = 0.0) 
     """Result for a dataset that could not even be opened."""
     p = Path(path)
     msg = f"Dataset could not be opened: {type(error).__name__}: {error}"
+    from .models import action_for, classification_for, finding_id, rule_from_message
+
+    rule = rule_from_message(msg[:500])
+    cls = classification_for("discover", "error")
     finding = {
         "severity": "error",
         "stage": "discover",
@@ -77,6 +82,18 @@ def failed_result(path: str | Path, error: BaseException, seconds: float = 0.0) 
         "sample_ids": [],
         "detail": "",
         "dataset": p.name,
+        "finding_id": finding_id("Open dataset", "", rule, []),
+        "rule": rule,
+        "classification": cls,
+        "confidence": 1.0,
+        "evidence": msg[:500],
+        "method": "Open dataset",
+        "threshold": "",
+        "affected_ids": [],
+        "affected_count": 0,
+        "recommended_action": action_for(cls),
+        "disposition": "OPEN",
+        "disposition_note": "",
     }
     return {
         "dataset": p.name,
