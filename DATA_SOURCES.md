@@ -26,3 +26,7 @@ repository**; download them from the original sources if you want to reproduce t
 **Attribution:** Contains information licensed under the Open Government License – City of Langley.
 
 Map tiles in the UI: © OpenStreetMap contributors (https://www.openstreetmap.org/copyright).
+
+## Derived baseline shipped with this repository
+
+`app/data/foundation_assets.csv` and `app/data/foundation_assets.json` list asset group and asset type names and codes extracted from the public Utility Network Foundation asset packages in the table above (electric, water, gas, sewer, stormwater, communications and district energy). They are not the source geodatabases. Those packages are Apache-2.0, copyright Esri. This table is distributed under the same licence, with this credit: *Copyright Esri. Derived from the ArcGIS Solutions Utility Network Foundation asset packages, licensed under Apache-2.0.*

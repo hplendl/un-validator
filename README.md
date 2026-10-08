@@ -22,7 +22,7 @@ The working title is set in one place: `APP_TITLE` in `app/config.py`. You can a
 | 3 | **Data source & lineage** | Horizontal and vertical CRS consistency, mixed CRS, Z values without a vertical CRS, and datum differences against the reference model. Covers editor tracking and edit-date span. For migration sources, it measures **field-mapping coverage** using Esri data-loading `*MatchTable*.csv` and `DataMapping.xlsx` files. |
 | 4 | **Schema & domain conformance** | Domain integrity, then coded and range values checked against their domains, subtype by subtype. Compares each class with its counterpart in the matched Foundation asset package: missing required or optional fields, extra fields, type mismatches and domain differences. |
 | 5 | **Data quality** | Nulls in required fields. Duplicate GlobalIDs (within and across classes) and duplicate asset or facility IDs. Null, empty, invalid, zero-length and zero-area geometry, plus stacked points. Line dangles and near-miss endpoints (STRtree, tolerance-aware). Z/M consistency, date sanity, `ISCONNECTED` status. UN system-table sanity: associations (orphans), subnetworks (dirty), rules, dirty areas and error tables. Asset-package `C_Associations` / `C_SubnetworkControllers` are checked too. |
-| 6 | **Score & report** | Weighted stage scores, an overall 0-100 score and grade, a map preview and the HTML/CSV export. |
+| 6 | **Score & report** | Weighted stage scores, an overall 0-100 score and grade, a map preview and the HTML/CSV/JSON export. Each finding has a stable id. The run writes a manifest and a signature that stays the same when the same data is validated again. |
 
 The UI shows the pipeline cards lighting up, with a progress bar and the current check for each stage. Below that are a
 live activity log and a live findings feed. When the run finishes you get a **dashboard** (overall and per-stage
@@ -31,6 +31,30 @@ a **Leaflet map** of flagged features (reprojected to WGS84 and sampled when lar
 **Export HTML** and **Export CSV** download the report.
 
 The *Demo pace* option slows each step down so the pipeline can be followed during a demo.
+**Profile only** runs discovery and a field profile (types, null rates, distinct values, key candidates) and does not score the dataset.
+A **rules file** and a **dispositions file** can be set in the same panel, or with `UNV_RULES` and `UNV_DISPOSITIONS`.
+
+---
+
+## Trust: findings, rules, manifest
+
+Every finding has a stable id (from the check, the layer, the rule and the affected record ids), a classification, a severity, a confidence, the evidence, the method, a capped list of record ids plus the full count, a recommended action, and a disposition that starts at `OPEN`. Scores and grades are unchanged by this extra detail. `findings.csv` and `findings.json` both include it. Cells that a spreadsheet would treat as a formula are still prefixed so they cannot run.
+
+A dispositions file (`examples/dispositions.example.json`) marks ids `CLOSED` or `ACCEPTED` on a later run. Those findings drop out of the open-questions list. The signature ignores disposition, so accepting a finding does not look like the data changed.
+
+`python run.py validate DATA.gdb --rules rules.json` deep-merges a JSON overlay onto the built-in thresholds, required fields, domain extras, stage weights and severities. Comments (`//` and `/* */`) are allowed. Unknown keys are an error, with the reason printed. See `examples/rules.example.json`. The same file can be chosen in the dashboard. Its hash is stored in the manifest.
+
+Each run writes `reports/<job>/manifest.json`: run id, tool version, time, input sizes and SHA-256, the effective rules and their hash, feature counts, finding counts, and a **signature**. The signature is a hash of the scores, layer counts and findings only. It does not include timestamps or file paths, so a repeat of the same inputs and rules reproduces it.
+
+```bat
+python run.py verify reports\<job>\manifest.json
+```
+
+That replays the recorded inputs and prints `MATCH` or `MISMATCH`.
+
+Asset groups and asset types are compared with a baseline derived from the Esri Utility Network Foundation models (electric, water, gas, sewer, stormwater, communications, district energy). The baseline is `app/data/foundation_assets.csv` and `.json`, under the Apache-2.0 licence of those models (see DATA_SOURCES.md). Exact names match at confidence 1. Close names are proposed with a confidence. Unmapped values and missing groups are findings, and `asset_mapping.csv` lists every distinct value. This check does not change the score.
+
+Profile-only mode and a full run both write open questions to `questions.csv` and `questions.xlsx`: the question, why it matters, the role that should answer it, the priority, the linked finding ids, and status `OPEN`.
 
 ---
 
@@ -90,6 +114,8 @@ reach the port could then read the data folders.
 | Concurrent runs (others queue) | | `UNV_MAX_CONCURRENT_JOBS` | `1` |
 | Read cache per dataset | | `UNV_READ_CACHE_MB` | `1500` |
 | Log level | `--log-level` | `UNV_LOG_LEVEL` | `INFO` |
+| Rules overlay | `validate --rules FILE` | `UNV_RULES` | built-in defaults |
+| Finding dispositions | `validate --dispositions FILE` | `UNV_DISPOSITIONS` | every finding `OPEN` |
 
 ---
 
@@ -99,7 +125,9 @@ reach the port could then read the data folders.
 python run.py                      &REM web UI on http://127.0.0.1:8765
 python run.py serve --port 9000    &REM another port   (or: set UNV_PORT=9000)
 python run.py validate "D:\data\MyNetwork.gdb"           &REM headless run, prints scores
-python run.py validate D:\data\folder_of_gdbs --pace-ms 0
+python run.py validate D:\data\folder_of_gdbs --pace-ms 0 --rules rules.json
+python run.py profile D:\data\MyNetwork.gdb             &REM fields and null rates, no score
+python run.py verify reports\<job>\manifest.json        &REM MATCH or MISMATCH
 python run.py clear-cache                                &REM delete cached compatibility copies
 ```
 
@@ -109,7 +137,7 @@ In the UI, pick a **Dataset**, a **Folder** (every gdb/gpkg inside it runs in se
 data folder. Then click **Run validation**. **Stop** ends the run after the current step and still produces a partial
 report. Runs started while another is in progress wait in a queue.
 
-Reports are written to `reports\<job id>\report.html`, `findings.csv` and `result.json`.
+Reports are written to `reports\<job id>\`: `report.html`, `findings.csv`, `findings.json`, `result.json`, `questions.csv`, `questions.xlsx`, `manifest.json` and, when asset types were compared, `asset_mapping.csv`.
 
 The validator never modifies the source data. Some geodatabases written by recent ArcGIS Pro releases need a
 compatibility view (see *GDAL note* below). That view is built in `.cache\`, and the cache can be deleted at any time.
@@ -218,7 +246,7 @@ finding. This GDAL issue is worth reporting upstream.
 ## Project layout
 
 ```
-run.py                     CLI: serve | validate | clear-cache (+ --data-root, --allow-any-path, ...)
+run.py                     CLI: serve | validate | profile | verify | clear-cache
 app/config.py              title, paths, tolerances, weights, footer (env / CLI overridable)
 app/log.py                 logging setup
 app/server.py              FastAPI: /api/datasets, /api/run, /api/jobs/{id}/events (SSE), result, exports
@@ -235,7 +263,14 @@ app/engine/catalog.py      GDB_Items definitions, domains and metadata XML (safe
 app/engine/fgdb_compat.py  GDAL compatibility copy for Pro-written FGDBs
 app/engine/targets.py      Foundation asset-package reference models and matching
 app/engine/checks/         built-in checks per stage (quality.py + network.py for stage 5)
-app/engine/report.py       HTML / CSV / JSON report writer
+app/engine/rules.py        built-in rules, JSON overlay, dispositions
+app/engine/manifest.py       run manifest and the deterministic signature
+app/engine/questions.py      open questions (CSV and XLSX)
+app/engine/profile.py        field profile used by profile-only mode
+app/engine/assets.py         Foundation asset-group / asset-type baseline and matching
+app/data/                    derived Foundation asset-type baseline (Apache-2.0)
+examples/                    commented rules and dispositions files
+app/engine/report.py         HTML / CSV / JSON / questions / manifest writer
 app/engine/core.py         compatibility imports for plugins (check, Job, run_job, ...)
 app/static/                single-page UI (vanilla JS, Leaflet 1.9.4 vendored with its licence)
 plugins/                   your checks (ArcPy hook example included)
