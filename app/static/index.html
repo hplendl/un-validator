@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UN Validator</title>
+<link rel="stylesheet" href="/static/vendor/leaflet.css">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><circle cx="7" cy="16" r="3.2"/><circle cx="25" cy="7" r="3.2"/><circle cx="25" cy="25" r="3.2"/><path d="M10 15 L22 8 M10 17 L22 24 M25 10 V22" /></svg>
+    <div>
+      <h1 id="appTitle">UN Validator</h1>
+      <div class="tagline">Utility Network metadata, data-source and data-quality validation</div>
+    </div>
+  </div>
+  <div class="hdr-right"><span id="hdrStatus" class="hdr-status idle">Idle</span><span id="hdrVersion"></span></div>
+</header>
+
+<div class="layout">
+  <aside class="side">
+    <section class="panel">
+      <h3>1 &middot; Choose data</h3>
+      <div class="seg" id="modeSeg">
+        <button data-mode="dataset" class="on">Dataset</button>
+        <button data-mode="folder">Folder</button>
+        <button data-mode="path">Path</button>
+      </div>
+      <div id="modeDataset" class="mode"><select id="dsSelect" size="12"></select></div>
+      <div id="modeFolder" class="mode hidden"><select id="folderSelect" size="12"></select></div>
+      <div id="modePath" class="mode hidden">
+        <input id="pathInput" type="text" placeholder="C:\data\MyNetwork.gdb  or a folder">
+        <div class="hint">Any .gdb / .gpkg, or a folder that contains them.</div>
+      </div>
+      <div id="dsInfo" class="dsinfo"></div>
+    </section>
+    <section class="panel">
+      <h3>2 &middot; Run</h3>
+      <label class="row">Demo pace
+        <select id="paceSelect">
+          <option value="0">Off (full speed)</option>
+          <option value="120">Narrated (120 ms/step)</option>
+          <option value="350">Slow (350 ms/step)</option>
+        </select>
+      </label>
+      <div class="btnrow">
+        <button id="runBtn" class="primary">&#9654; Run validation</button>
+        <button id="cancelBtn" class="ghost" disabled>Stop</button>
+      </div>
+      <div class="btnrow exports">
+        <a id="exportHtml" class="btn disabled" target="_blank">Export HTML</a>
+        <a id="exportCsv" class="btn disabled">Export CSV</a>
+      </div>
+    </section>
+    <section class="panel">
+      <h3>Run status</h3>
+      <div class="kv"><span>Elapsed</span><b id="stElapsed">&ndash;</b></div>
+      <div class="kv"><span>Dataset</span><b id="stDataset">&ndash;</b></div>
+      <div class="kv"><span>Checks run</span><b id="stChecks">0</b></div>
+      <div class="sevcounts">
+        <div class="sc error"><b id="cntError">0</b><span>errors</span></div>
+        <div class="sc warning"><b id="cntWarning">0</b><span>warnings</span></div>
+        <div class="sc info"><b id="cntInfo">0</b><span>info</span></div>
+      </div>
+    </section>
+    <section class="panel">
+      <h3>Registered checks</h3>
+      <div id="checkList" class="checklist"></div>
+    </section>
+  </aside>
+
+  <main class="main">
+    <section class="pipeline-wrap">
+      <div class="pipeline-head">
+        <div><span class="ph-title">Validation pipeline</span> <span id="runLabel" class="ph-sub">Select a dataset and press Run</span></div>
+        <div class="overall-progress"><div id="overallBar"></div></div>
+        <span id="overallPct" class="ph-pct">0%</span>
+      </div>
+      <div class="pipeline" id="pipeline"></div>
+    </section>
+
+    <nav class="tabs" id="tabs">
+      <button data-tab="live" class="on">Live log</button>
+      <button data-tab="dash">Dashboard</button>
+      <button data-tab="findings">Findings <span id="tabFindCount" class="pill"></span></button>
+      <button data-tab="map">Map</button>
+      <button data-tab="details">Layers &amp; metadata</button>
+      <div class="tab-right"><label id="resultDsWrap" class="hidden">Result for <select id="resultDs"></select></label></div>
+    </nav>
+
+    <div class="tabpane on" id="pane-live">
+      <div class="live-grid">
+        <div class="logbox">
+          <div class="logbar"><span>Activity</span><label><input type="checkbox" id="autoScroll" checked> auto-scroll</label></div>
+          <div id="log" class="log"></div>
+        </div>
+        <div class="feed">
+          <div class="logbar"><span>Findings as they are raised</span></div>
+          <div id="feed" class="feedlist"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tabpane" id="pane-dash"><div id="dash" class="empty">Run a validation to see results.</div></div>
+
+    <div class="tabpane" id="pane-findings">
+      <div class="filters">
+        <label class="chk error"><input type="checkbox" value="error" checked> Errors <span id="fcError"></span></label>
+        <label class="chk warning"><input type="checkbox" value="warning" checked> Warnings <span id="fcWarning"></span></label>
+        <label class="chk info"><input type="checkbox" value="info" checked> Info <span id="fcInfo"></span></label>
+        <select id="fStage"><option value="">All stages</option></select>
+        <select id="fLayer"><option value="">All layers</option></select>
+        <input id="fSearch" type="search" placeholder="Search findings...">
+        <span id="fShown" class="muted"></span>
+      </div>
+      <div class="tablewrap"><table class="grid" id="findTable">
+        <thead><tr><th>Severity</th><th>Stage</th><th>Check</th><th>Layer</th><th class="num">Count</th><th>Finding</th><th>Sample OIDs</th><th></th></tr></thead>
+        <tbody></tbody>
+      </table></div>
+    </div>
+
+    <div class="tabpane" id="pane-map">
+      <div class="mapwrap"><div id="map"></div>
+        <div class="maplegend" id="mapLegend"></div>
+      </div>
+    </div>
+
+    <div class="tabpane" id="pane-details"><div id="details" class="empty">Run a validation to see layer, CRS and metadata tables.</div></div>
+  </main>
+</div>
+
+<footer class="footer" id="footer"></footer>
+
+<script src="/static/vendor/leaflet.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

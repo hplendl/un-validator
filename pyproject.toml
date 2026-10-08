@@ -1,0 +1,52 @@
+[project]
+name = "un-validator"
+version = "0.2.0"
+description = "Open-source validation of ArcGIS Utility Network geodatabases: metadata, lineage, schema and data quality"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Harry Plendl" }]
+requires-python = ">=3.10"
+# Runtime dependencies are listed in requirements.txt (and environment.yml for conda).
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+extend-exclude = ["data", "reports", ".cache"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "BLE", "N", "SIM", "RUF"]
+ignore = [
+  "E501",    # long f-strings in log/finding messages read better unwrapped; the formatter handles code
+  "SIM108",  # ternaries are not always clearer
+  "RUF001",  # the UI text uses typographic characters on purpose
+  "RUF012",
+  "B905",
+  "SIM102",  # nested ifs often mirror the rule being checked
+  "SIM105",  # try/except/pass is clearer than contextlib.suppress for one-liners    # zip(strict=) needs 3.10+ semantics everywhere; not worth the noise
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["BLE001", "N802"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+markers = ["sample_data: end-to-end runs on the public sample datasets (skipped when absent)"]
+filterwarnings = [
+  "ignore:Measured \\(M\\) geometry types are not supported:UserWarning",
+  "ignore::RuntimeWarning:pyogrio",
+  "ignore:Error parsing datetimes",
+  "ignore:Using `httpx` with `starlette.testclient` is deprecated",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+
+[tool.coverage.report]
+show_missing = false
+skip_covered = false
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "if __name__ == .__main__.:"]

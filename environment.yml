@@ -1,0 +1,17 @@
+# conda env create -f environment.yml   (then: conda activate unvalidator)
+name: unvalidator
+channels:
+  - conda-forge
+dependencies:
+  - python=3.12
+  - fastapi>=0.110
+  - uvicorn-standard>=0.29
+  - pydantic>=2.5
+  - pyogrio>=0.10
+  - geopandas>=1.0
+  - shapely>=2.0
+  - pyproj>=3.6
+  - pandas>=2.1
+  - numpy>=1.26
+  - lxml>=5.0
+  - openpyxl>=3.1

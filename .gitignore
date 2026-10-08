@@ -1,0 +1,38 @@
+# Data and run artefacts (never commit sample data or reports)
+/data
+/reports
+/.cache
+*.gdb/
+*.gpkg
+*.gpkg-journal
+*.gpkg-wal
+*.gpkg-shm
+*.zip
+*.7z
+*.ppkx
+
+# Python
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+
+# Tools
+.pytest_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.mypy_cache/
+
+# Editors / OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
