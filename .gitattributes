@@ -2,3 +2,13 @@
 *.bat text eol=crlf
 *.png binary
 app/static/vendor/** -text
+testdata/**/*.gdbtable binary
+testdata/**/*.gdbtablx binary
+testdata/**/*.gdbindexes binary
+testdata/**/*.atx binary
+testdata/**/*.spx binary
+testdata/**/*.freelist binary
+testdata/**/gdb binary
+testdata/**/timestamps binary
+testdata/*.gpkg binary
+testdata/**/*.gpkg binary

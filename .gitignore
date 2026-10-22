@@ -36,3 +36,7 @@ htmlcov/
 *.swp
 .DS_Store
 Thumbs.db
+
+# Bundled public test data (Apache-2.0 Esri sample, see testdata/README.md)
+!testdata/**/*.gdb/
+!testdata/**/*.gpkg

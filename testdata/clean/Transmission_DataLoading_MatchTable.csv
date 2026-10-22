@@ -1,0 +1,48 @@
+﻿type,SubstringsA,SubstringsB,match_strings
+field,PrimaryVoltage,nominalvoltagelinetoline,exact_match
+field,SecondaryVoltage,secondaryvoltagelinetoline,exact_match
+field,Voltage,nominalvoltagelinetoline,exact_match
+field,SecondaryVoltage,secondaryvoltagelinetoground,exact_block
+field,Rating,ratedpower,exact_match
+field,TODEVICETERMINAL,TODEVICETERMINAL,exact_match
+field,FROMDEVICETERMINAL,FROMDEVICETERMINAL,exact_match
+field,FROMDEVICETERMINAL,TODEVICETERMINAL,exact_block
+field,TODEVICETERMINAL,FROMDEVICETERMINAL,exact_block
+value,13.8 kV,138 kV,exact_block
+value,14.4 kV,440 kV,exact_block
+value,23 kV,230 kV,exact_block
+value,34.5 kV,345 kV,exact_block
+value,13.8 kV,18 kV,exact_block
+value,34.5 kV,350 kV,exact_block
+value,13.8 kV,180 kV,exact_block
+field,station_globalid,GlobalID,exact_block
+field,tower_globalid,GlobalID,exact_block
+field,retireddate,created_date,exact_block
+value,7400 kVA,400 MVA,exact_block
+value,7500 kVA,500 MVA,exact_block
+value,10000 kVA,1000 MVA,exact_block
+value,15000 kVA,1000 MVA,exact_block
+value,20000 kVA,200 MVA,exact_block
+value,65 mVA,650 MVA,exact_block
+value,7500 kVA,750 MVA,exact_block
+value,10000 kVA,100 MVA,exact_block
+value,15000 kVA,1500 MVA,exact_block
+value,65 mVA,15 MVA,exact_block
+value,65 mVA,25 MVA,exact_block
+value,65 mVA,35 MVA,exact_block
+value,65 mVA,55 MVA,exact_block
+value,65 mVA,75 MVA,exact_block
+value,65 mVA,50 MVA,exact_block
+value,65 mVA,60 MVA,exact_block
+value,65 mVA,150 MVA,exact_block
+value,65 mVA,350 MVA,exact_block
+value,65 mVA,5.5 MVA,exact_block
+value,65 mVA,500 MVA,exact_block
+value,65 mVA,550 MVA,exact_block
+value,65 mVA,750 MVA,exact_block
+value,65 mVA,1500 MVA,exact_block
+value,7500 kVA,1500 MVA,exact_block
+value,10000 kVA,100 MVA,exact_block
+value,15000 kVA,100 MVA,exact_block
+value,15000 kVA,150 MVA,exact_block
+value,15000 kVA,500 MVA,exact_block

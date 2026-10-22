@@ -1,0 +1,18 @@
+error_id,dataset,layer,error_type,description,expected_check
+G01,Transmission_seeded.gdb,PowerTransformer,bad_domain_value,assetid SEED-E01: PrimaryVoltage=99999 (not in NominalVoltage coded domain),Coded values within domains
+G02,Transmission_seeded.gdb,Substation,duplicate_globalid,Name 'SEED-G02 duplicate' reuses GlobalID {4810F057-D2B0-4794-B9E0-938CDBCF71ED},Duplicate GlobalIDs & asset IDs
+G03,Transmission_seeded.gdb,Tower,null_geometry,assetid SEED-G03 has no geometry,Geometry validity
+G04,Transmission_seeded.gdb,Tower,null_required_field,Tower row with GlobalID NULL and assetid NULL,Required fields populated
+G05,Transmission_seeded.gdb,Tower,stacked_point_duplicate_assetid,Copy of Tower assetid E-HV-Pl-2 at identical XY (stacked point + duplicate asset id),Geometry validity / Duplicate GlobalIDs & asset IDs
+G06,Transmission_seeded.gdb,Connector,broken_connectivity,"Isolated 400 ft Connector line 5000 ft NE of the network (2 dangles, connects to nothing)",Line connectivity: dangles & near-misses
+G07,Transmission_seeded.gdb,Disconnect,orphan_junction,Disconnect point 8000 ft outside the network with no line touching it,(no point-on-line check expected)
+G08,Transmission_seeded.gdb,Connector,zero_length_line,Connector with both vertices identical (zero length),Geometry validity
+P02,Transmission_seeded.gpkg,HVOverheadConductor,wrong_spatial_reference,Layer tagged EPSG:4326 while coordinates are IL State Plane East ft (EPSG:3435); others stay 3435,CRS & vertical datum consistency
+P06,Transmission_seeded.gpkg,PowerTransformer,bad_domain_value,PrimaryVoltage=99999 on 5 rows (GeoPackage has no Esri domains),Coded values within domains (needs domain catalog)
+P05,Transmission_seeded.gpkg,Tower,null_geometry,First 4 Tower rows have NULL geometry,Geometry validity
+P07,Transmission_seeded.gpkg,Connector,broken_connectivity,Isolated Connector line far from network,Line connectivity: dangles & near-misses
+P03,Transmission_seeded.gpkg,CircuitBreaker,duplicate_globalid,First 3 CircuitBreaker rows reuse row 4's GlobalID,Duplicate GlobalIDs & asset IDs
+P04,Transmission_seeded.gpkg,CircuitBreaker,null_required_field,CircuitBreaker rows 5-9 have NULL GlobalID,Required fields populated
+P01,Transmission_seeded.gpkg,Busbar,missing_required_field,GlobalID column dropped from Busbar,Conformance to reference model / Required fields
+P08,Transmission_seeded.gpkg,Substation,bad_metadata,"Substation metadata is Esri placeholder text ('REQUIRED: ...', purpose 'TBD', keyword 'todo')",Evaluate item metadata
+P09,Transmission_seeded.gpkg,(workspace),bad_metadata,GeoPackage-level metadata abstract is just 'n/a',Evaluate dataset-level metadata
