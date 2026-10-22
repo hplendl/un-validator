@@ -65,6 +65,7 @@
       <div class="kv"><span>Dataset</span><b id="stDataset">&ndash;</b></div>
       <div class="kv"><span>Checks run</span><b id="stChecks">0</b></div>
       <div class="sevcounts">
+        <div class="sc critical"><b id="cntCritical">0</b><span>critical</span></div>
         <div class="sc error"><b id="cntError">0</b><span>errors</span></div>
         <div class="sc warning"><b id="cntWarning">0</b><span>warnings</span></div>
         <div class="sc info"><b id="cntInfo">0</b><span>info</span></div>
@@ -112,6 +113,7 @@
 
     <div class="tabpane" id="pane-findings">
       <div class="filters">
+        <label class="chk critical"><input type="checkbox" value="critical" checked> Critical <span id="fcCritical"></span></label>
         <label class="chk error"><input type="checkbox" value="error" checked> Errors <span id="fcError"></span></label>
         <label class="chk warning"><input type="checkbox" value="warning" checked> Warnings <span id="fcWarning"></span></label>
         <label class="chk info"><input type="checkbox" value="info" checked> Info <span id="fcInfo"></span></label>

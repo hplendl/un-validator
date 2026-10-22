@@ -11,7 +11,7 @@ import shapely
 from shapely import STRtree
 
 from ... import config
-from ..geo import crs_info, horizontal_crs
+from ..geo import crs_info, horizontal_crs, plausible_in
 from ..registry import check
 from ..scoring import penalty_score
 from ._util import data_layers, field_lookup, normalize_guid
@@ -37,6 +37,14 @@ def _geoms_in(ctx, lyr, ref_wkt: str | None):
     gdf = ctx.dataset.read_geometry(lyr.name)
     gdf = gdf[_non_empty(gdf.geometry.values)]
     if ref_wkt and lyr.crs_wkt and crs_info(lyr.crs_wkt).get("horizontal") != crs_info(ref_wkt).get("horizontal"):
+        bounds = tuple(gdf.total_bounds) if len(gdf) else None
+        if not plausible_in(lyr.crs_wkt, bounds) and plausible_in(ref_wkt, bounds):
+            ctx.log(
+                f"  {lyr.name}: coordinates do not fit its declared CRS but fit "
+                f"{crs_info(ref_wkt).get('horizontal')}; treated as mislabelled, used without reprojection",
+                "warn",
+            )
+            return gdf
         try:
             gdf = gdf.set_crs(horizontal_crs(lyr.crs_wkt), allow_override=True).to_crs(horizontal_crs(ref_wkt))
             ctx.log(f"  {lyr.name} reprojected to {crs_info(ref_wkt).get('horizontal')} for the connectivity test")
@@ -169,11 +177,52 @@ def dangles(ctx) -> None:
             gdf = gpd.GeoDataFrame(index=dg_oids, geometry=eps[free], crs=crs)
             ctx.flag_features(lyr.name, gdf, "info", "Dangling endpoint", max_n=120)
     ctx.tables["connectivity"] = rows
+    _orphan_junctions(ctx, points, parts, ref_wkt, snap, crs)
     ctx.progress(1.0, "done")
     if len(eps):
         ctx.score(
             max(0.0, 100.0 * (1 - min(1.0, (5 * n_nm + 0.5 * n_dg) / len(eps)))), weight=2, label="Line connectivity"
         )
+
+
+JUNCTION_HINT = re.compile(
+    r"junction|device|breaker|disconnect|tap|switch|fuse|valve|fitting|transformer|connector", re.I
+)
+
+
+def _orphan_junctions(ctx, points, parts, ref_wkt, snap, crs) -> None:
+    """Junction/device points that touch no line (orphans). Only point layers that look like
+    network junctions or devices are tested; structures such as substations or towers are skipped."""
+    import geopandas as gpd
+
+    tree = STRtree(parts) if len(parts) else None
+    for lyr in points:
+        if not JUNCTION_HINT.search(lyr.name):
+            continue
+        gdf = _geoms_in(ctx, lyr, ref_wkt)
+        if gdf is None or not len(gdf):
+            continue
+        pts = shapely.force_2d(gdf.geometry.values)
+        on = np.zeros(len(pts), dtype=bool)
+        if tree is not None:
+            a, _ = tree.query(pts, predicate="dwithin", distance=snap)
+            on[np.unique(a)] = True
+        orphan = np.where(~on)[0]
+        ctx.log(f"{lyr.name}: {len(orphan):,} of {len(pts):,} points touch no line")
+        if len(orphan):
+            oids = gdf.index[orphan]
+            ctx.finding(
+                "warning",
+                f"{len(orphan):,} {lyr.name} points are orphan junctions (not on any line)",
+                layer=lyr.name,
+                count=len(orphan),
+                sample_ids=list(oids[: config.MAX_SAMPLE_IDS]),
+                check="Orphan junctions",
+                recommended_action="Snap the point to its line or remove it; an orphan junction cannot join the network.",
+            )
+            ctx.flag_features(
+                lyr.name, gpd.GeoDataFrame(index=oids, geometry=pts[orphan], crs=crs), "warning", "Orphan junction", 120
+            )
 
 
 @check("quality", "Network connectivity status (ISCONNECTED)", order=70)

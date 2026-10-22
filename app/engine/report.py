@@ -168,7 +168,7 @@ def write_html(result: dict, path: Path) -> None:
  <h2>{E(ds["dataset"])} <span class='grade' style='background:{_score_color(ds.get("overall"))}'>{ov} &middot; {E(str(ds.get("grade")))}</span></h2>
  <p class='muted'>{E(str(ds.get("display_path") or ds["path"]))}{_status_note(ds)}<br>{E(str(s.get("kind", "")))} &middot; {_int(s.get("feature_classes"))} feature classes, {_int(s.get("tables"))} tables,
  {_int(s.get("features")):,} features &middot; reference model: {E(str(s.get("reference_model") or "none"))} &middot; {E(str(ds.get("seconds", "?")))} s</p>
- <div class='cards'>{cards}<div class='card'><div class='lbl'>Findings</div><div class='val small'><span class='e'>{_int(c.get("error"))} errors</span><br>
+ <div class='cards'>{cards}<div class='card'><div class='lbl'>Findings</div><div class='val small'><span class='e'>{_int(c.get("critical"))} critical</span><br><span class='e'>{_int(c.get("error"))} errors</span><br>
  <span class='w'>{_int(c.get("warning"))} warnings</span><br><span class='i'>{_int(c.get("info"))} info</span></div></div></div>
  <h3>Findings</h3>
  <table class='findings'><thead><tr><th>Severity</th><th>Stage</th><th>Layer</th><th>Count</th><th>Finding</th></tr></thead><tbody>{frows}</tbody></table>
@@ -191,7 +191,7 @@ h2{{margin:0 0 6px;font-size:19px}} h3{{margin:22px 0 8px;font-size:15px;color:#
 .lbl{{font-size:11px;text-transform:uppercase;color:#6b778c;letter-spacing:.04em}} .val{{font-size:28px;font-weight:600}} .val.small{{font-size:13px;line-height:1.5}}
 table{{border-collapse:collapse;width:100%;font-size:12.5px}} th,td{{border-bottom:1px solid #e6eaf2;padding:5px 7px;text-align:left;vertical-align:top}}
 th{{background:#f0f3f8;font-weight:600}} .muted{{color:#6b778c;font-size:12.5px}} .det{{color:#6b778c;font-size:11.5px;margin-top:2px;word-break:break-word}}
-.sev{{border-radius:10px;padding:1px 8px;font-size:11px;color:#fff;text-transform:uppercase}} .sev.error{{background:#c53030}} .sev.warning{{background:#d69e2e}} .sev.info{{background:#3182ce}}
+.sev{{border-radius:10px;padding:1px 8px;font-size:11px;color:#fff;text-transform:uppercase}} .sev.critical{{background:#7b1010}} .sev.error{{background:#c53030}} .sev.warning{{background:#d69e2e}} .sev.info{{background:#3182ce}}
 .e{{color:#c53030}} .w{{color:#b7791f}} .i{{color:#2b6cb0}}
 footer{{font-size:11.5px;color:#6b778c;padding:10px 32px 30px}}
 </style></head><body>

@@ -18,7 +18,7 @@ def compute_scores(ctx) -> None:
     c = sc["counts"]
     ctx.log(
         f"Overall quality score: {sc['overall']} ({sc['grade']}); "
-        f"{c['error']} errors, {c['warning']} warnings, {c['info']} info"
+        f"{c.get('critical', 0)} critical, {c['error']} errors, {c['warning']} warnings, {c['info']} info"
     )
 
 

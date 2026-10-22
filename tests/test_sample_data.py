@@ -18,10 +18,10 @@ SAMPLES = Path(os.environ.get("UNV_SAMPLE_DATA", Path(__file__).resolve().parent
 
 # dataset (relative to SAMPLES) -> expected overall score and grade
 EXPECTED = {
-    "prosdk/Data/UtilityNetwork/NapervilleElectric.gdb": (71.2, "C"),
-    "foundations/Water_Utility_Network_Essentials/Data Model/WaterEssentials_AssetPackage.gdb": (77.4, "C"),
-    "other/seatac_StormwaterInfrastructure.gdb/StormwaterInfrastructure.gdb": (80.5, "B"),
-    "other/langley_waterutility.gdb/Water Utility Jan 26 2026.gdb": (58.6, "F"),
+    "prosdk/Data/UtilityNetwork/NapervilleElectric.gdb": (74.4, "C"),
+    "foundations/Water_Utility_Network_Essentials/Data Model/WaterEssentials_AssetPackage.gdb": (80.6, "B"),
+    "other/seatac_StormwaterInfrastructure.gdb/StormwaterInfrastructure.gdb": (71.1, "C"),
+    "other/langley_waterutility.gdb/Water Utility Jan 26 2026.gdb": (55.2, "F"),
 }
 
 pytestmark = [

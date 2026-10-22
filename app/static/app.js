@@ -10,11 +10,11 @@ const num = (v) => (typeof v === "number" && isFinite(v) ? v : null);
 const JOB_ID = /^[A-Za-z0-9]{1,40}$/;
 const fmt = (n) => (n === null || n === undefined || n === "") ? "" : (typeof n === "number" ? n.toLocaleString("en-US") : n);
 const scoreColor = (v) => v == null ? "#8a94a6" : v >= 90 ? "#1f9d63" : v >= 80 ? "#5fa82e" : v >= 70 ? "#d9a21a" : v >= 60 ? "#dd6b20" : "#d23f3f";
-const SEVCOL = { error: "#d23f3f", warning: "#d9921a", info: "#2f7fd8" };
+const SEVCOL = { critical: "#7b1010", error: "#d23f3f", warning: "#d9921a", info: "#2f7fd8" };
 
 const S = {
   cfg: null, mode: "dataset", job: null, es: null, result: null, dsIdx: 0, t0: 0, timer: null,
-  stages: [], stageState: {}, counts: { error: 0, warning: 0, info: 0 }, checksRun: 0,
+  stages: [], stageState: {}, counts: { critical: 0, error: 0, warning: 0, info: 0 }, checksRun: 0,
   dsTotal: 1, dsIndex: 0, stagesDone: 0, curFrac: 0, map: null, mapLayers: null,
 };
 
@@ -99,7 +99,7 @@ function buildPipeline() {
       <div class="foot"><span class="score"></span><span class="chips"></span></div>
     </div>`).join("");
   S.stageState = {};
-  S.stages.forEach((s) => S.stageState[s.id] = { total: 0, idx: 0, frac: 0, counts: { error: 0, warning: 0, info: 0 } });
+  S.stages.forEach((s) => S.stageState[s.id] = { total: 0, idx: 0, frac: 0, counts: { critical: 0, error: 0, warning: 0, info: 0 } });
 }
 function stageEl(id) { return $("#stg-" + id); }
 function setStageBar(id) {
@@ -117,7 +117,7 @@ function updateOverall() {
 }
 function setChips(id) {
   const c = S.stageState[id].counts;
-  $(".chips", stageEl(id)).innerHTML = (c.error ? `<span class="e">${c.error}</span>` : "") + (c.warning ? `<span class="w">${c.warning}</span>` : "") + (c.info ? `<span class="i">${c.info}</span>` : "");
+  $(".chips", stageEl(id)).innerHTML = (c.critical ? `<span class="c">${c.critical}</span>` : "") + (c.error ? `<span class="e">${c.error}</span>` : "") + (c.warning ? `<span class="w">${c.warning}</span>` : "") + (c.info ? `<span class="i">${c.info}</span>` : "");
 }
 
 /* ---------------- run + events ---------------- */
@@ -231,7 +231,7 @@ function handle(kind, ev) {
       const sc = $(".score", el);
       if (num(ev.score) != null) { sc.textContent = Math.round(ev.score); sc.style.color = scoreColor(ev.score); } else sc.textContent = "✓";
       $(".st", el).textContent = `Done in ${ev.seconds}s`;
-      logLine(`${ts(ev.t)}■ Stage finished${ev.score != null ? " · score " + esc(ev.score) : ""} · ${esc(ev.counts.error)} errors, ${esc(ev.counts.warning)} warnings, ${esc(ev.counts.info)} info`, "hd");
+      logLine(`${ts(ev.t)}■ Stage finished${ev.score != null ? " · score " + esc(ev.score) : ""} · ${esc(ev.counts.critical || 0)} critical, ${esc(ev.counts.error)} errors, ${esc(ev.counts.warning)} warnings, ${esc(ev.counts.info)} info`, "hd");
       break;
     }
     case "log":
@@ -267,7 +267,7 @@ function handle(kind, ev) {
 }
 
 function updateCounts() {
-  $("#cntError").textContent = S.counts.error; $("#cntWarning").textContent = S.counts.warning; $("#cntInfo").textContent = S.counts.info;
+  $("#cntCritical").textContent = S.counts.critical || 0; $("#cntError").textContent = S.counts.error; $("#cntWarning").textContent = S.counts.warning; $("#cntInfo").textContent = S.counts.info;
 }
 
 async function finish(ok, status = "done") {
@@ -338,7 +338,7 @@ function renderDashboard() {
   $("#dash").innerHTML = multi + `
     <div class="card"><h4>Overall quality score</h4><div class="scorering">${ring(d.overall, d.grade)}
       <div class="ds-meta"><b>${esc(d.dataset)}</b><br>${esc(s.kind || "")}<br>
-      <span style="color:#d23f3f">${esc(d.counts.error)} errors</span> · <span style="color:#b0700c">${esc(d.counts.warning)} warnings</span> · <span style="color:#2f7fd8">${esc(d.counts.info)} info</span></div></div>
+      <span style="color:#7b1010">${esc(d.counts.critical || 0)} critical</span> · <span style="color:#d23f3f">${esc(d.counts.error)} errors</span> · <span style="color:#b0700c">${esc(d.counts.warning)} warnings</span> · <span style="color:#2f7fd8">${esc(d.counts.info)} info</span></div></div>
       <div class="ds-meta" style="margin-top:8px">
         <b>${esc(fmt(s.feature_classes))}</b> feature classes · <b>${esc(fmt(s.tables))}</b> tables · <b>${esc(fmt(s.features))}</b> features<br>
         <b>${esc(fmt(s.domains))}</b> domains · ${s.utility_networks && s.utility_networks.length ? "utility network <b>" + esc(s.utility_networks.join(", ")) + "</b>" : "no utility network controller"}<br>
@@ -362,7 +362,7 @@ function renderFindingFilters() {
   $("#fStage").innerHTML = `<option value="">All stages</option>` + stages.map((s) => `<option value="${esc(s)}">${esc(stageNames[s] || s)}</option>`).join("");
   const layers = [...new Set(d.findings.map((f) => f.layer).filter(Boolean))].sort();
   $("#fLayer").innerHTML = `<option value="">All layers</option>` + layers.map((l) => `<option>${esc(l)}</option>`).join("");
-  ["error", "warning", "info"].forEach((s) => $("#fc" + s[0].toUpperCase() + s.slice(1)).textContent = `(${(d.counts || {})[s] || 0})`);
+  ["critical", "error", "warning", "info"].forEach((s) => $("#fc" + s[0].toUpperCase() + s.slice(1)).textContent = `(${(d.counts || {})[s] || 0})`);
   $("#tabFindCount").textContent = d.findings.length;
 }
 
@@ -404,7 +404,7 @@ function renderMap() {
     pointToLayer: (f, ll) => L.circleMarker(ll, { radius: 2, color: "#6b7385", weight: 1, fillOpacity: 0.5 }),
     interactive: false,
   });
-  const order = { info: 0, warning: 1, error: 2 };
+  const order = { info: 0, warning: 1, error: 2, critical: 3 };
   const flagged = [...m.flagged].sort((a, b) => order[a.properties.severity] - order[b.properties.severity]);
   const fl = L.geoJSON({ type: "FeatureCollection", features: flagged }, {
     style: (f) => ({ color: SEVCOL[f.properties.severity] || "#000", weight: 3, opacity: 0.9, fillOpacity: 0.25 }),

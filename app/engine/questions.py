@@ -19,7 +19,7 @@ ROLES = {
     "discover": "GIS administrator",
     "report": "Data steward",
 }
-PRIORITY = {"error": "high", "warning": "medium", "info": "low"}
+PRIORITY = {"critical": "urgent", "error": "high", "warning": "medium", "info": "low"}
 WHY = {
     "metadata": "Incomplete metadata means the next person cannot tell what the data is, who owns it, or how it may be used.",
     "lineage": "Without a clear source and coordinate system, a later load can shift or mis-credit the data.",

@@ -219,3 +219,46 @@ def workspace_metadata(ctx):
     if missing:
         ctx.finding("info", f"Dataset-level metadata lacks: {', '.join(missing)}", count=len(missing))
     ctx.score(sc, weight=1, label="Dataset-level metadata")
+
+
+@check("metadata", "Layer coordinate systems", order=1)
+def layer_crs(ctx) -> None:
+    """Runs first: every spatial layer's declared projection and coordinate system is compared with the
+    dominant one, and declared CRSs that cannot hold the layer's coordinates are reported."""
+    from collections import Counter
+
+    from ..geo import crs_info, plausible_in
+
+    spatial = [lyr for lyr in ctx.dataset.user_layers() if lyr.spatial and lyr.readable]
+    if not spatial:
+        return
+    per = {lyr.name: crs_info(lyr.crs_wkt) for lyr in spatial}
+    hz = Counter(c["horizontal"] for c in per.values() if c.get("defined"))
+    main = hz.most_common(1)[0][0] if hz else None
+    main_wkt = next((lyr.crs_wkt for lyr in spatial if per[lyr.name].get("horizontal") == main), None)
+    ctx.log(f"Dominant coordinate system: {main or 'none'} ({hz.get(main, 0)} of {len(spatial)} layers)")
+    odd = [n for n, c in per.items() if c.get("defined") and c["horizontal"] != main]
+    for name in odd:
+        lyr = next(x for x in spatial if x.name == name)
+        bounds = None
+        try:
+            g = ctx.dataset.read_geometry(name)
+            if len(g):
+                bounds = tuple(g.total_bounds)
+        except Exception:  # noqa: BLE001
+            pass
+        mislabel = bounds is not None and not plausible_in(lyr.crs_wkt, bounds) and plausible_in(main_wkt, bounds)
+        msg = f"{name} declares {per[name]['horizontal']}, but the dataset uses {main}"
+        if mislabel:
+            msg += "; its coordinates only fit the dominant CRS, so the projection metadata is wrong"
+        ctx.finding(
+            "error",
+            msg,
+            layer=name,
+            count=1,
+            detail="Reprojected (or, if mislabelled, re-tagged) to the dominant CRS for topology, snapping and dangle checks.",
+            recommended_action="Fix the layer's coordinate system metadata, or project the layer to the dataset CRS.",
+        )
+    ctx.state["dominant_crs_wkt"] = main_wkt
+    if len(spatial):
+        ctx.score(100.0 * (1 - len(odd) / len(spatial)), weight=1, label="Layer CRS agreement")

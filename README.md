@@ -58,6 +58,14 @@ Profile-only mode and a full run both write open questions to `questions.csv` an
 
 ---
 
+## Severities and test data
+
+Findings are `critical`, `error`, `warning` or `info`. **Critical** is used for GlobalID problems (missing field, nulls, duplicates), because joins, relates and associations break without unique GlobalIDs. The metadata stage first checks every layer's coordinate system against the dominant CRS. Differing layers are reported, then aligned before the topology, snapping, dangle and orphan-junction checks.
+
+`testdata/` has clean and seeded-error public datasets, with a manifest of planted errors and the expected results. See `testdata/README.md`.
+
+---
+
 ## Windows setup
 
 You need Python 3.10–3.13 (python.org or Miniforge/Anaconda). The `pyogrio` wheel bundles GDAL, so nothing else has to be installed.
@@ -186,7 +194,7 @@ def valve_install_date(ctx):
   * `.class_def(name)` and `.domains()`.
 * `ctx.log(msg, level="info"|"warn"|"error")` adds a line to the live log.
 * `ctx.progress(fraction, label)` drives the stage progress bar.
-* `ctx.finding(severity, message, layer=, count=, sample_ids=, detail=)` records a finding. Severity is `error`, `warning` or `info`.
+* `ctx.finding(severity, message, layer=, count=, sample_ids=, detail=)` records a finding. Severity is `critical`, `error`, `warning` or `info`.
 * `ctx.score(value_0_100, weight, label)` adds a component to the stage score.
 * `ctx.flag_features(layer, gdf, severity, label)` or `ctx.flag_fids(layer, ids, severity, label)` adds features to the map preview.
 * `ctx.state` is a dict shared between checks. Examples: `state["target"]` (the matched reference model) and `state["main_crs"]`.

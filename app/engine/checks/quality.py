@@ -94,7 +94,9 @@ def required_nulls(ctx) -> None:
             n = empty_n[c]
             if n:
                 bad += n
-                if c.lower() in req_cfg or c.lower() in non_nullable:
+                if c.lower() == "globalid":
+                    sev = ctx.sev("null_globalid", "critical")
+                elif c.lower() in req_cfg or c.lower() in non_nullable:
                     sev = ctx.sev("null_required", "error")
                 else:
                     sev = ctx.sev("null_optional", "warning")
@@ -124,6 +126,16 @@ def duplicates(ctx) -> None:
     for i, lyr in enumerate(layers):
         present = field_lookup(lyr)
         g = present.get("globalid")
+        if not g:
+            ctx.finding(
+                ctx.sev("missing_globalid", "critical"),
+                f"{lyr.name} has no GlobalID field; joins, relates and UN associations depend on it",
+                layer=lyr.name,
+                count=lyr.count,
+                recommended_action="Add a GlobalID field (Add Global IDs) before loading or relating this class.",
+            )
+            bad += lyr.count
+            total_ids += lyr.count
         if g:
             ctx.log(f"Checking {lyr.count:,} {lyr.name} {'features' if lyr.spatial else 'rows'} for duplicate GLOBALID")
             raw = ctx.dataset.read_columns(lyr.name, [g])[g]
@@ -135,7 +147,7 @@ def duplicates(ctx) -> None:
                 n = int(d.sum())
                 bad += n
                 ctx.finding(
-                    ctx.sev("duplicate_globalid", "error"),
+                    ctx.sev("duplicate_globalid", "critical"),
                     f"{n:,} rows share a GlobalID with another row in {lyr.name}",
                     layer=lyr.name,
                     count=n,
@@ -174,7 +186,7 @@ def duplicates(ctx) -> None:
         cross = cross[cross.groupby("gid")["layer"].transform("nunique") > 1]
         if len(cross):
             ctx.finding(
-                "error",
+                ctx.sev("duplicate_globalid", "critical"),
                 f"{cross.gid.nunique():,} GlobalIDs are reused across different classes",
                 count=len(cross),
                 detail=", ".join(sorted(cross.layer.unique())),

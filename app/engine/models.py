@@ -18,8 +18,8 @@ STAGES: list[tuple[str, str]] = [
 ]
 STAGE_NAMES: dict[str, str] = dict(STAGES)
 SCORED_STAGES = ("metadata", "lineage", "schema", "quality")
-SEVERITIES = ("error", "warning", "info")
-SEVERITY_RANK = {"error": 0, "warning": 1, "info": 2}
+SEVERITIES = ("critical", "error", "warning", "info")
+SEVERITY_RANK = {"critical": 0, "error": 1, "warning": 2, "info": 3}
 DISPOSITIONS = ("OPEN", "CLOSED", "ACCEPTED")
 CLASSIFICATIONS = ("defect", "conformance", "completeness", "lineage", "discovery", "observation")
 

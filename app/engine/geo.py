@@ -110,3 +110,31 @@ def to_wgs84_features(gdf, layer: str, severity: str, label: str, check: str) ->
             }
         )
     return feats
+
+
+def plausible_in(crs_wkt: str | None, bounds) -> bool:
+    """True when *bounds* (minx, miny, maxx, maxy) are possible coordinates for the CRS.
+
+    Catches mislabelled layers, such as State Plane feet tagged as WGS 84 degrees.
+    """
+    if not crs_wkt or bounds is None or any(b != b for b in bounds):
+        return True
+    try:
+        crs = horizontal_crs(crs_wkt)
+    except Exception:  # noqa: BLE001
+        return True
+    minx, miny, maxx, maxy = bounds
+    if crs.is_geographic:
+        return minx >= -540 and maxx <= 540 and miny >= -90.5 and maxy <= 90.5
+    aou = crs.area_of_use
+    if aou is None:
+        return True
+    try:
+        from pyproj import Transformer
+
+        t = Transformer.from_crs(4326, crs, always_xy=True)
+        xs, ys = t.transform([aou.west, aou.east, aou.west, aou.east], [aou.south, aou.south, aou.north, aou.north])
+    except Exception:  # noqa: BLE001
+        return True
+    w, h = max(xs) - min(xs), max(ys) - min(ys)
+    return min(xs) - w <= minx and maxx <= max(xs) + w and min(ys) - h <= miny and maxy <= max(ys) + h

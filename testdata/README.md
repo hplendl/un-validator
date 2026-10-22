@@ -29,20 +29,20 @@ python run.py --allow-any-path validate testdata\seeded\Transmission_seeded.gpkg
 ```
 You can also run `python run.py serve` and point the UI at the `testdata` folder to run them all as a folder comparison.
 
-## Expected scores (v0.3.0, reference run 2026-10-22)
-| Dataset | Overall | Metadata | Lineage | Schema | Quality | Error/Warn/Info |
+## Expected scores (v0.4.0)
+| Dataset | Overall | Metadata | Lineage | Schema | Quality | Critical/Error/Warn/Info |
 |---|---|---|---|---|---|---|
-| clean .gdb | 75.1 C | 5.0 | 91.4 | 84.9 | 98.0 | 8 / 14 / 12 |
-| clean .gpkg | 67.7 D | 0.0 | 91.4 | 58.3 | 98.5 | 4 / 11 / 7 |
-| seeded .gdb | 75.1 C | 5.0 | 91.4 | 84.8 | 97.9 | 12 / 15 / 14 |
-| seeded .gpkg | 62.9 D | 0.0 | 68.6 | 58.3 | 95.1 | 8 / 16 / 14 |
+| clean .gdb | 76.9 C | 20.8 | 82.4 | 84.9 | 98.0 | 0 / 8 / 18 / 12 |
+| clean .gpkg | 69.7 D | 16.7 | 82.4 | 58.3 | 98.5 | 0 / 4 / 15 / 7 |
+| seeded .gdb | 78.2 C | 20.8 | 91.4 | 84.8 | 97.9 | 0 / 12 / 18 / 14 |
+| seeded .gpkg | 66.6 D | 15.3 | 68.6 | 58.3 | 96.6 | 3 / 7 / 19 / 14 |
 
-The clean data is not error-free. The original Esri sample already has real findings, such as 25 Busbar voltage values outside NominalVoltage and missing metadata. That is the baseline. Judge the seeded copies by the **difference** from their clean twin. (The clean gdb lineage score was 91.4 without the match-table CSVs next to it and 82.4 with them.)
+The clean data is not error-free. Esri's original sample has real findings, such as 25 Busbar voltages outside their domain, missing metadata, and 34 Disconnect, 11 PowerTransformer and 9 CircuitBreaker points that are inside stations and not on a line. Judge each seeded copy by its **difference** from its clean twin. A clean copy must never produce a critical finding.
 
-## Catch and miss summary (v0.3.0)
-Of the 17 planted errors, **12 were caught, 3 were missed and 2 did not plant** (the OpenFileGDB writer regenerates GlobalIDs on append):
-- **Missed G07:** an orphan junction point with no line touching it. There is no point-on-line connectivity check.
-- **Missed P01:** the GlobalID column was dropped from a GeoPackage class. GPKG classes are not compared with the Foundation model.
-- **Missed P06:** bad coded values in a GeoPackage. There are no domains to check against, so this miss is expected.
-- **Not planted G02 and G04:** a duplicate GlobalID and a NULL GlobalID in the FGDB. P03 and P04 cover the same cases in the GPKG.
-- **Note:** the wrong-CRS layer (P02) was caught, but it also inflated dangles to 1,438 because cross-CRS snapping is not reprojected.
+## Catch and miss summary
+| Version | Caught | Missed | Not planted |
+|---|---|---|---|
+| v0.3.0 | 12 | 3 (G07 orphan junction, P01 missing GlobalID field, P06 GPKG domain) | 2 |
+| v0.4.0 | 14 | 1 (P06: a GeoPackage has no Esri domains, so this miss is expected) | 2 |
+
+G02 and G04 (a duplicate and a null GlobalID appended to the FGDB) never planted, because GDAL's OpenFileGDB writer regenerates GlobalIDs. P03 and P04 cover the same cases in the GPKG. `tests/test_testdata.py` enforces these results in CI.

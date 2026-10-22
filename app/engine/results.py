@@ -107,7 +107,7 @@ def failed_result(path: str | Path, error: BaseException, seconds: float = 0.0) 
         "components": {},
         "overall": None,
         "grade": "n/a",
-        "counts": {"error": 1, "warning": 0, "info": 0},
+        "counts": {"critical": 0, "error": 1, "warning": 0, "info": 0},
         "findings": [finding],
         "tables": {},
         "map": {"context": [], "flagged": []},

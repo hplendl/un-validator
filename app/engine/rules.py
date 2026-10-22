@@ -23,6 +23,8 @@ SEVERITY_KEYS = (
     "null_required",
     "null_optional",
     "duplicate_globalid",
+    "missing_globalid",
+    "null_globalid",
     "duplicate_asset_id",
     "coded_value",
     "unmapped_asset_type",
@@ -59,6 +61,8 @@ def builtin_rules() -> dict:
 
 
 def _default_severity(key: str) -> str:
+    if key in ("duplicate_globalid", "missing_globalid", "null_globalid"):
+        return "critical"
     if key in ("null_optional", "duplicate_asset_id", "unmapped_asset_type"):
         return "warning"
     if key in ("missing_asset_group", "fuzzy_asset_type"):
@@ -192,7 +196,7 @@ def _errors_for(doc: Any) -> list[str]:
                 )
             bad = [k for k, v in sev.items() if v not in SEVERITIES]
             if bad:
-                errs.append("Severity must be error, warning or info for: " + ", ".join(bad) + ".")
+                errs.append("Severity must be critical, error, warning or info for: " + ", ".join(bad) + ".")
     if "domains" in doc:
         dom = doc["domains"]
         if not isinstance(dom, dict):

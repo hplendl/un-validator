@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.4.0
+
+- New **critical** severity, ranked above error. A layer with no GlobalID field, or with null or duplicate GlobalIDs (within a class or across classes), is critical because joins, relates and UN associations depend on it. This applies to GeoPackage layers as well as FGDB. Rules-file keys: `missing_globalid`, `null_globalid`, `duplicate_globalid`.
+- New metadata check, **Layer coordinate systems**, runs first. It compares every spatial layer's declared projection with the dominant CRS. A layer that differs is reported as a metadata error. It is also flagged as mislabelled when its coordinates cannot belong to the declared CRS, for example State Plane feet tagged as WGS 84.
+- Topology, snapping and dangle checks reproject differing layers to the dominant CRS. Mislabelled layers are used as-is in the dominant CRS instead of being reprojected from a wrong CRS, which removes false dangles (1,438 to 19 on the seeded test data).
+- New **Orphan junctions** check: junction and device points that touch no line, within the snap tolerance.
+- `testdata/`: public Esri Apache-2.0 sample datasets, clean and with seeded errors, plus `errors_manifest.csv`, `expected_results.csv` and a regression test. v0.4.0 catches 14 of 15 planted errors. The remaining one is a coded-value error in a GeoPackage, which has no domains to check against.
+- Scores change because of the new checks. The sample-data baselines were updated.
+
 ## 0.3.0
 
 - Each finding now has a stable id, classification, confidence, evidence, method, affected-record ids (capped, with a count), a recommended action and a disposition (`OPEN` until a dispositions file says otherwise). Scores and grades are computed the same way as in 0.2.0.
